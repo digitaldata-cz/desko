@@ -1,4 +1,4 @@
-module git.digitaldata.cz/granus/lib-desko-go
+module github.com/digitaldata/lib-desko-go
 
 go 1.15
 
