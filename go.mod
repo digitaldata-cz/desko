@@ -1,4 +1,4 @@
-module github.com/digitaldata/lib-desko-go
+module github.com/digitaldata-cz/lib-desko-go
 
 go 1.15
 
