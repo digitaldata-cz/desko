@@ -117,6 +117,11 @@ func StartReading(d *hid.Device, f func(IcaoData)) {
 					data = append(data, []byte{}) // Add new line to IcaoData slice
 					continue
 				}
+				if len(data) == 0 {
+					fmt.Println("DESKO reader error: Skipping data before start of document")
+					time.Sleep(100 * time.Millisecond)
+					continue // Skip data before start of document
+				}
 				data[len(data)-1] = append(data[len(data)-1], r[i])
 			}
 			continue // Continue reading from HID without delay
