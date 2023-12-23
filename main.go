@@ -1,10 +1,8 @@
 package desko
 
 import (
-	"errors"
 	"fmt"
 	"log"
-	"runtime"
 	"strings"
 	"time"
 
@@ -63,40 +61,32 @@ func Open() (d *hid.Device) {
 }
 */
 
-// GetDeviceInfo - returns HID device info
-func GetDeviceInfo() (*hid.DeviceInfo, error) {
-	for _, d := range hid.Enumerate(deskoUsbVendorID, deskoUsbProductID) {
-		switch os := runtime.GOOS; os {
-		case "linux":
-			if d.Interface == 2 {
-				return &d, nil
-			}
-		default:
-			if d.Usage == 1 {
-				return &d, nil
-			}
-		}
-	}
-	return nil, errors.New("No supported DESKO device found")
-}
-
 // StartReading - start reading data from DESKO reader
-func StartReading(d *hid.Device, f func(IcaoData)) {
-	d.Write([]byte{0x20, 0x00})
-	go func() {
+func StartReading(desko *hid.Device, parser func(IcaoData)) error {
+	quit := make(chan struct{})
+
+	// Initialize DESKO reader
+	go func(quit chan struct{}) {
+		desko.Write([]byte{0x20, 0x00})
 		for {
-			d.Write([]byte{0x30, 0x00})
-			time.Sleep(3 * time.Second)
+			select {
+			case <-quit:
+				desko.Close()
+				return
+			default:
+				desko.Write([]byte{0x30, 0x00})
+				time.Sleep(3 * time.Second)
+			}
 		}
-	}()
+	}(quit)
+
 	var data IcaoData
 	r := make([]byte, 32) // HID response buffer
 	for {
-		readBytes, err := d.Read(r)
+		readBytes, err := desko.Read(r)
 		if err != nil {
-			fmt.Println(err)
-			d.Close()
-			return
+			quit <- struct{}{} // Stop DESKO reader
+			return err
 		}
 		if readBytes > 0 {
 			for i := byte(2); i < r[1]+2; i++ {
@@ -108,7 +98,7 @@ func StartReading(d *hid.Device, f func(IcaoData)) {
 				}
 				// End of document
 				if r[i] == 0x0d && r[i+1] == 0x03 && r[i+2] == 0x1d {
-					f(data)
+					parser(data)
 					data = data[:0] // Flush slice
 					break
 				}
@@ -316,12 +306,12 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 	return // Error
 }
 
+/*
 func handleFunc(data IcaoData) {
 	//fmt.Println(data)
 	ParseICAO(data)
 }
 
-/*
 func main() {
 	deviceInfo, err := getDeviceInfo()
 	if err != nil {
