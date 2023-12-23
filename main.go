@@ -77,7 +77,7 @@ func StartReading(desko *hid.Device, parser func(IcaoData)) error {
 		for {
 			select {
 			case <-quit:
-				desko.Close()
+				desko.Close() // #nosec G104
 				return
 			default:
 				desko.Write([]byte{0x30, 0x00}) // #nosec G104
