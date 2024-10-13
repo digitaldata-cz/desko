@@ -47,6 +47,8 @@ const (
 	deskoUsbProductID = 0x001d
 )
 
+var debug = false
+
 /*
 func Open() (d *hid.Device) {
 	deviceInfo, err := GetDeviceInfo()
@@ -62,9 +64,16 @@ func Open() (d *hid.Device) {
 }
 */
 
+func Debug(enable bool) {
+	debug = enable
+}
+
 // StartReading - start reading data from DESKO reader
 func StartReading(desko *hid.Device, parser func(IcaoData)) error {
 	if desko == nil {
+		if debug {
+			fmt.Println("DESKO reader error: DESKO not found")
+		}
 		return fmt.Errorf("DESKO reader not found")
 	}
 
@@ -72,6 +81,9 @@ func StartReading(desko *hid.Device, parser func(IcaoData)) error {
 
 	// Initialize DESKO reader
 	if _, err := desko.Write([]byte{0x20, 0x00}); err != nil {
+		if debug {
+			fmt.Println("DESKO reader error: Unable to write initialize code to reader")
+		}
 		return err
 	}
 	go func(quit chan struct{}) {
@@ -97,26 +109,40 @@ func StartReading(desko *hid.Device, parser func(IcaoData)) error {
 			return err
 		}
 		if readBytes > 0 {
+			if debug {
+				fmt.Printf("DESKO reader: % X\n", r[:readBytes])
+			}
 			for i := byte(2); i < r[1]+2; i++ {
 				// Start of document
 				if r[i] == 0x1c && r[i+1] == 0x02 {
+					if debug {
+						fmt.Println("DESKO reader: Start of document")
+					}
 					i++
 					data = append(data[:0], []byte{}) // Initialize first line in IcaoData slice
 					continue
 				}
 				// End of document
 				if r[i] == 0x0d && r[i+1] == 0x03 && r[i+2] == 0x1d {
+					if debug {
+						fmt.Println("DESKO reader: End of document")
+					}
 					parser(data)
 					data = data[:0] // Flush slice
 					break
 				}
 				// New line
 				if r[i] == 0x0d {
+					if debug {
+						fmt.Println("DESKO reader: New line")
+					}
 					data = append(data, []byte{}) // Add new line to IcaoData slice
 					continue
 				}
 				if len(data) == 0 {
-					fmt.Println("DESKO reader error: Skipping data before start of document")
+					if debug {
+						fmt.Println("DESKO reader: Skipping data before start of document")
+					}
 					time.Sleep(100 * time.Millisecond)
 					continue // Skip data before start of document
 				}
@@ -333,7 +359,7 @@ func handleFunc(data IcaoData) {
 }
 
 func main() {
-	deviceInfo, err := getDeviceInfo()
+	deviceInfo, err := GetDeviceInfo()
 	if err != nil {
 		log.Println(err)
 		os.Exit(1)
@@ -343,7 +369,7 @@ func main() {
 		log.Panicln(err)
 	}
 	defer deskoReader.Close()
-	startReading(deskoReader, handleFunc)
+	StartReading(deskoReader, handleFunc)
 
 	// Wait for SIGINT or SIGTERM
 	sigs := make(chan os.Signal, 1)
