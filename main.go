@@ -149,6 +149,7 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 				ret.Number = string(d[0][5:14]) + string(d[0][14:17])
 			} else {
 				ret.Number = string(d[0][5:14])
+				ret.NumberChecksum = string(d[0][14:15])
 			}
 			// Vyjmenovane doklady maji v optional zone rodne cislo
 			if ret.Country == "ALB" || // albania

@@ -96,20 +96,21 @@ func TestParseICAO(t *testing.T) {
 		{
 			name: "Valid ICAO 9303 - ID Card",
 			input: IcaoData{
-				[]byte("I<GBRJOHNSON<<JOHN<<<<<<<<<<<<<<<<<<<<<<<<<<"),
-				[]byte("1234567897GBR8001014M2501017<<<<<<<<<<<<<<02"),
+				[]byte("IDCZE9980013435<<<<<<<<<<<<<<<"),
+				[]byte("8110088F2201100CZE<<<<<<<<<<<6"),
+				[]byte("SPECIMEN<<VZOR<<<<<<<<<<<<<<<<"),
 			},
 			expected: IcaoDocument{
 				IcaoType:         "I",
-				IcaoSubtype:      "",
-				Country:          "GBR",
-				Number:           "123456789",
-				NumberChecksum:   "7",
+				IcaoSubtype:      "D",
+				Country:          "CZE",
+				Number:           "998001343",
+				NumberChecksum:   "5",
 				NumberChecksumOk: true,
-				Name:             "JOHN",
-				Surname:          "JOHNSON",
-				Sex:              "M",
-				Nationality:      "GBR",
+				Name:             "VZOR",
+				Surname:          "SPECIMEN",
+				Sex:              "F",
+				Nationality:      "CZE",
 				Birth: struct {
 					Year       string `json:"year" xml:"year"`
 					Month      string `json:"month" xml:"month"`
@@ -117,10 +118,10 @@ func TestParseICAO(t *testing.T) {
 					Checksum   string `json:"checksum" xml:"checksum"`
 					ChecksumOk bool   `json:"checksumok" xml:"checksumok"`
 				}{
-					Year:       "80",
-					Month:      "01",
-					Day:        "01",
-					Checksum:   "4",
+					Year:       "81",
+					Month:      "10",
+					Day:        "08",
+					Checksum:   "8",
 					ChecksumOk: true,
 				},
 				Expire: struct {
@@ -130,10 +131,10 @@ func TestParseICAO(t *testing.T) {
 					Checksum   string `json:"checksum" xml:"checksum"`
 					ChecksumOk bool   `json:"checksumok" xml:"checksumok"`
 				}{
-					Year:       "25",
+					Year:       "22",
 					Month:      "01",
-					Day:        "01",
-					Checksum:   "7",
+					Day:        "10",
+					Checksum:   "0",
 					ChecksumOk: true,
 				},
 			},
