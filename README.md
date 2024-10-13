@@ -1,1 +1,1 @@
-# Golang library with functions for DESKO reader
+# Go library with functions for DESKO reader
