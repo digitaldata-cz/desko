@@ -13,17 +13,19 @@ type (
 	IcaoData [][]byte
 	// IcaoDocument - parsed data from reader
 	IcaoDocument struct {
-		TransactionID string `json:"transactionId,omitempty"`
-		IcaoType      string `json:"type" xml:"type"`
-		IcaoSubtype   string `json:"subtype" xml:"subtype"`
-		Country       string `json:"country" xml:"country"`
-		Number        string `json:"number" xml:"number"`
-		Name          string `json:"name" xml:"name"`
-		Surname       string `json:"surname" xml:"surname"`
-		Pin           string `json:"pin" xml:"pin"`
-		Sex           string `json:"sex" xml:"sex"`
-		Nationality   string `json:"nationality" xml:"nationality"`
-		Birth         struct {
+		TransactionID    string `json:"transactionId,omitempty"`
+		IcaoType         string `json:"type" xml:"type"`
+		IcaoSubtype      string `json:"subtype" xml:"subtype"`
+		Country          string `json:"country" xml:"country"`
+		Number           string `json:"number" xml:"number"`
+		NumberChecksum   string `json:"numberChecksum" xml:"numberChecksum"`
+		NumberChecksumOk bool   `json:"numberChecksumOk" xml:"numberChecksumOk"`
+		Name             string `json:"name" xml:"name"`
+		Surname          string `json:"surname" xml:"surname"`
+		Pin              string `json:"pin" xml:"pin"`
+		Sex              string `json:"sex" xml:"sex"`
+		Nationality      string `json:"nationality" xml:"nationality"`
+		Birth            struct {
 			Year       string `json:"year" xml:"year"`
 			Month      string `json:"month" xml:"month"`
 			Day        string `json:"day" xml:"day"`
@@ -233,6 +235,7 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 		if len(d[0]) == 44 {
 			rawName = string(d[0][5:34])
 			ret.Number = string(d[1][0:9])
+			ret.NumberChecksum = string(d[1][9:10])
 			ret.Nationality = string(d[1][10:13])
 			ret.Birth.Year = string(d[1][13:15])
 			ret.Birth.Month = string(d[1][15:17])
@@ -277,6 +280,21 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 				(ret.Expire.Day[0]&0x0f)*3+
 				(ret.Expire.Day[1]&0x0f))%10 == ret.Expire.Checksum[0]&0x0f {
 				ret.Expire.ChecksumOk = true
+			}
+		}
+
+		// Overeni kontrolniho souctu pro cislo dokladu
+		if len(ret.Number) == 9 && len(ret.NumberChecksum) == 1 {
+			if ((ret.Number[0]&0x0f)*7+
+				(ret.Number[1]&0x0f)*3+
+				(ret.Number[2]&0x0f)+
+				(ret.Number[3]&0x0f)*7+
+				(ret.Number[4]&0x0f)*3+
+				(ret.Number[5]&0x0f)+
+				(ret.Number[6]&0x0f)*7+
+				(ret.Number[7]&0x0f)*3+
+				(ret.Number[8]&0x0f))%10 == ret.NumberChecksum[0]&0x0f {
+				ret.NumberChecksumOk = true
 			}
 		}
 
