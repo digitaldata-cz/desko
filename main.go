@@ -138,8 +138,8 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 	ret.Birth.ChecksumOk = false
 	ret.Expire.ChecksumOk = false
 
-	if len(d) == 3 {
-
+	switch len(d) {
+	case 3:
 		// 90/3 ICAO 9303
 		// Obcanske prukazy EU + vyjimka pro Belgii
 		if len(d[0]) == 30 {
@@ -178,8 +178,7 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 			parsed = true
 		}
 
-	} else if len(d) == 2 {
-
+	case 2:
 		// 68/2 ICAO 9303
 		// Stary slovensky OP
 		if len(d[0]) == 34 {
@@ -248,15 +247,13 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 			parsed = true
 		}
 
-	} else if len(d) == 1 {
-
+	case 1:
 		// 30/1
 		// Ridicsky prukaz Estonsko
 		if len(d[0]) == 30 {
 			ret.Number = string(d[0][5:14])
 			parsed = true
 		}
-
 	}
 
 	if parsed {
@@ -291,12 +288,12 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 		if len(rawName) > 0 {
 			name := strings.Split(rawName, "<<")
 			if len(name) == 2 {
-				ret.Surname = strings.Replace(name[0], "<", " ", -1)
-				ret.Name = strings.Replace(name[1], "<", " ", -1)
+				ret.Surname = strings.ReplaceAll(name[0], "<", " ")
+				ret.Name = strings.ReplaceAll(name[1], "<", " ")
 			}
 		} else {
-			ret.Surname = strings.Replace(ret.Surname, "<", " ", -1)
-			ret.Name = strings.Replace(ret.Name, "<", " ", -1)
+			ret.Surname = strings.ReplaceAll(ret.Surname, "<", " ")
+			ret.Name = strings.ReplaceAll(ret.Name, "<", " ")
 		}
 		ret.Pin = strings.Trim(ret.Pin, "<")
 		if ret.Sex != "M" && ret.Sex != "F" {
