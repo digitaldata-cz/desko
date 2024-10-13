@@ -6,7 +6,7 @@ package desko
 import (
 	"errors"
 
-	"github.com/spetr/hid"
+	"github.com/bearsh/hid"
 )
 
 // GetDeviceInfo - returns HID device info

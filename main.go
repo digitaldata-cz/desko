@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/spetr/hid"
+	"github.com/bearsh/hid"
 )
 
 type (
