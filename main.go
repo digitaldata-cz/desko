@@ -261,6 +261,28 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 	}
 
 	if parsed {
+		ret.IcaoType = strings.Trim(ret.IcaoType, "<")
+		ret.IcaoSubtype = strings.Trim(ret.IcaoSubtype, "<")
+		ret.Country = strings.Trim(ret.Country, "<")
+		ret.Number = strings.Trim(ret.Number, "<")
+		ret.NumberChecksum = strings.Trim(ret.NumberChecksum, "<")
+		rawName = strings.Trim(rawName, "<")
+		if len(rawName) > 0 {
+			name := strings.Split(rawName, "<<")
+			if len(name) == 2 {
+				ret.Surname = strings.ReplaceAll(name[0], "<", " ")
+				ret.Name = strings.ReplaceAll(name[1], "<", " ")
+			}
+		} else {
+			ret.Surname = strings.ReplaceAll(ret.Surname, "<", " ")
+			ret.Name = strings.ReplaceAll(ret.Name, "<", " ")
+		}
+		ret.Pin = strings.Trim(ret.Pin, "<")
+		if ret.Sex != "M" && ret.Sex != "F" {
+			ret.Sex = ""
+		}
+		ret.Nationality = strings.Trim(ret.Nationality, "<")
+
 		// Overeni kontrolniho souctu pro datumy
 		if (len(ret.Birth.Year) == 2) && (len(ret.Birth.Month) == 2) && (len(ret.Birth.Day) == 2) {
 			if ((ret.Birth.Year[0]&0x0f)*7+
@@ -299,26 +321,6 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 			}
 		}
 
-		ret.IcaoType = strings.Trim(ret.IcaoType, "<")
-		ret.IcaoSubtype = strings.Trim(ret.IcaoSubtype, "<")
-		ret.Country = strings.Trim(ret.Country, "<")
-		ret.Number = strings.Trim(ret.Number, "<")
-		rawName = strings.Trim(rawName, "<")
-		if len(rawName) > 0 {
-			name := strings.Split(rawName, "<<")
-			if len(name) == 2 {
-				ret.Surname = strings.ReplaceAll(name[0], "<", " ")
-				ret.Name = strings.ReplaceAll(name[1], "<", " ")
-			}
-		} else {
-			ret.Surname = strings.ReplaceAll(ret.Surname, "<", " ")
-			ret.Name = strings.ReplaceAll(ret.Name, "<", " ")
-		}
-		ret.Pin = strings.Trim(ret.Pin, "<")
-		if ret.Sex != "M" && ret.Sex != "F" {
-			ret.Sex = ""
-		}
-		ret.Nationality = strings.Trim(ret.Nationality, "<")
 		return // OK
 	}
 	return // Error
