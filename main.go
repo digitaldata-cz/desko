@@ -9,8 +9,11 @@ import (
 )
 
 type (
-	// IcaoData - raw data from reader
-	IcaoData [][]byte
+	// ReaderData - raw data from reader
+	ReaderData struct {
+		Type    string
+		RawData [][]byte
+	}
 	// IcaoDocument - parsed data from reader
 	IcaoDocument struct {
 		TransactionID    string `json:"transactionId,omitempty"`
@@ -69,7 +72,7 @@ func Debug(enable bool) {
 }
 
 // StartReading - start reading data from DESKO reader
-func StartReading(desko *hid.Device, parser func(IcaoData)) error {
+func StartReading(desko *hid.Device, parser func(ReaderData)) error {
 	if desko == nil {
 		if debug {
 			fmt.Println("DESKO reader error: DESKO not found")
@@ -100,7 +103,7 @@ func StartReading(desko *hid.Device, parser func(IcaoData)) error {
 		}
 	}(quit)
 
-	var data IcaoData
+	var data ReaderData
 	r := make([]byte, 32) // HID response buffer
 	for {
 		readBytes, err := desko.Read(r)
@@ -113,22 +116,24 @@ func StartReading(desko *hid.Device, parser func(IcaoData)) error {
 				fmt.Printf("DESKO reader: % X\n", r[:readBytes])
 			}
 			for i := byte(2); i < r[1]+2; i++ {
-				// Start of document
+				// Start of ICAO document
 				if r[i] == 0x1c && r[i+1] == 0x02 {
 					if debug {
 						fmt.Println("DESKO reader: Start of document")
 					}
 					i++
-					data = append(data[:0], []byte{}) // Initialize first line in IcaoData slice
+					data.Type = string("MRZ")
+					data.RawData = append(data.RawData[:0], []byte{}) // Initialize first line in IcaoData slice
 					continue
 				}
-				// End of document
+				// End of ICAO document
 				if r[i] == 0x0d && r[i+1] == 0x03 && r[i+2] == 0x1d {
 					if debug {
 						fmt.Println("DESKO reader: End of document")
 					}
 					parser(data)
-					data = data[:0] // Flush slice
+					data.Type = ""
+					data.RawData = data.RawData[:0] // Flush slice
 					break
 				}
 				// New line
@@ -136,17 +141,17 @@ func StartReading(desko *hid.Device, parser func(IcaoData)) error {
 					if debug {
 						fmt.Println("DESKO reader: New line")
 					}
-					data = append(data, []byte{}) // Add new line to IcaoData slice
+					data.RawData = append(data.RawData, []byte{}) // Add new line to IcaoData slice
 					continue
 				}
-				if len(data) == 0 {
+				if len(data.RawData) == 0 {
 					if debug {
 						fmt.Println("DESKO reader: Skipping data before start of document")
 					}
 					time.Sleep(100 * time.Millisecond)
 					continue // Skip data before start of document
 				}
-				data[len(data)-1] = append(data[len(data)-1], r[i])
+				data.RawData[len(data.RawData)-1] = append(data.RawData[len(data.RawData)-1], r[i])
 			}
 			continue // Continue reading from HID without delay
 		}
@@ -155,27 +160,27 @@ func StartReading(desko *hid.Device, parser func(IcaoData)) error {
 }
 
 // ParseICAO - parse raw data to struct
-func ParseICAO(d IcaoData) (ret IcaoDocument) {
+func ParseICAO(d ReaderData) (ret IcaoDocument) {
 	var (
 		rawName string
 		parsed  = false
 	)
-	ret.IcaoType = string(d[0][0])
-	ret.IcaoSubtype = string(d[0][1])
-	ret.Country = string(d[0][2:5])
+	ret.IcaoType = string(d.RawData[0][0])
+	ret.IcaoSubtype = string(d.RawData[0][1])
+	ret.Country = string(d.RawData[0][2:5])
 	ret.Birth.ChecksumOk = false
 	ret.Expire.ChecksumOk = false
 
-	switch len(d) {
+	switch len(d.RawData) {
 	case 3:
 		// 90/3 ICAO 9303
 		// Obcanske prukazy EU + vyjimka pro Belgii
-		if len(d[0]) == 30 {
+		if len(d.RawData[0]) == 30 {
 			if ret.Country == "BEL" {
-				ret.Number = string(d[0][5:14]) + string(d[0][14:17])
+				ret.Number = string(d.RawData[0][5:14]) + string(d.RawData[0][14:17])
 			} else {
-				ret.Number = string(d[0][5:14])
-				ret.NumberChecksum = string(d[0][14:15])
+				ret.Number = string(d.RawData[0][5:14])
+				ret.NumberChecksum = string(d.RawData[0][14:15])
 			}
 			// Vyjmenovane doklady maji v optional zone rodne cislo
 			if ret.Country == "ALB" || // albania
@@ -191,97 +196,97 @@ func ParseICAO(d IcaoData) (ret IcaoDocument) {
 				ret.Country == "SVK" || // slovakia
 				ret.Country == "ESP" || // spain
 				ret.Country == "UKR" { // ukraine
-				ret.Pin = string(d[0][15:25])
+				ret.Pin = string(d.RawData[0][15:25])
 			}
-			ret.Birth.Year = string(d[1][0:2])
-			ret.Birth.Month = string(d[1][2:4])
-			ret.Birth.Day = string(d[1][4:6])
-			ret.Birth.Checksum = string(d[1][6:7])
-			ret.Sex = string(d[1][7])
-			ret.Expire.Year = string(d[1][8:10])
-			ret.Expire.Month = string(d[1][10:12])
-			ret.Expire.Day = string(d[1][12:14])
-			ret.Expire.Checksum = string(d[1][14:15])
-			ret.Nationality = string(d[1][15:18])
-			rawName = string(d[2][0:30])
+			ret.Birth.Year = string(d.RawData[1][0:2])
+			ret.Birth.Month = string(d.RawData[1][2:4])
+			ret.Birth.Day = string(d.RawData[1][4:6])
+			ret.Birth.Checksum = string(d.RawData[1][6:7])
+			ret.Sex = string(d.RawData[1][7])
+			ret.Expire.Year = string(d.RawData[1][8:10])
+			ret.Expire.Month = string(d.RawData[1][10:12])
+			ret.Expire.Day = string(d.RawData[1][12:14])
+			ret.Expire.Checksum = string(d.RawData[1][14:15])
+			ret.Nationality = string(d.RawData[1][15:18])
+			rawName = string(d.RawData[2][0:30])
 			parsed = true
 		}
 
 	case 2:
 		// 68/2 ICAO 9303
 		// Stary slovensky OP
-		if len(d[0]) == 34 {
-			rawName = string(d[0][5:34])
-			ret.Number = string(d[1][0:9])
-			ret.Nationality = string(d[1][10:13])
-			ret.Birth.Year = string(d[1][13:15])
-			ret.Birth.Month = string(d[1][15:17])
-			ret.Birth.Day = string(d[1][17:19])
-			ret.Birth.Checksum = string(d[1][19:20])
-			ret.Sex = string(d[1][20])
-			ret.Expire.Year = string(d[1][21:23])
-			ret.Expire.Month = string(d[1][23:25])
-			ret.Expire.Day = string(d[1][25:27])
-			ret.Expire.Checksum = string(d[1][27:28])
+		if len(d.RawData[0]) == 34 {
+			rawName = string(d.RawData[0][5:34])
+			ret.Number = string(d.RawData[1][0:9])
+			ret.Nationality = string(d.RawData[1][10:13])
+			ret.Birth.Year = string(d.RawData[1][13:15])
+			ret.Birth.Month = string(d.RawData[1][15:17])
+			ret.Birth.Day = string(d.RawData[1][17:19])
+			ret.Birth.Checksum = string(d.RawData[1][19:20])
+			ret.Sex = string(d.RawData[1][20])
+			ret.Expire.Year = string(d.RawData[1][21:23])
+			ret.Expire.Month = string(d.RawData[1][23:25])
+			ret.Expire.Day = string(d.RawData[1][25:27])
+			ret.Expire.Checksum = string(d.RawData[1][27:28])
 			parsed = true
 		}
 
 		// 72/2 ICAO 9303
 		// Nemecky OP 2004
 		// Francouzsky OP
-		if len(d[0]) == 36 {
+		if len(d.RawData[0]) == 36 {
 			if ret.Country == "FRA" {
-				ret.Surname = string(d[0][5:30])
-				ret.Number = string(d[1][0:12])
-				ret.Name = string(d[1][13:27])
-				ret.Birth.Year = string(d[1][27:29])
-				ret.Birth.Month = string(d[1][29:31])
-				ret.Birth.Day = string(d[1][31:33])
-				ret.Birth.Checksum = string(d[1][33:34])
-				ret.Sex = string(d[1][34])
+				ret.Surname = string(d.RawData[0][5:30])
+				ret.Number = string(d.RawData[1][0:12])
+				ret.Name = string(d.RawData[1][13:27])
+				ret.Birth.Year = string(d.RawData[1][27:29])
+				ret.Birth.Month = string(d.RawData[1][29:31])
+				ret.Birth.Day = string(d.RawData[1][31:33])
+				ret.Birth.Checksum = string(d.RawData[1][33:34])
+				ret.Sex = string(d.RawData[1][34])
 				ret.Nationality = "FRA"
 			} else {
-				rawName = string(d[0][5:36])
-				ret.Number = string(d[1][0:9])
-				ret.Nationality = string(d[1][10:13])
-				ret.Birth.Year = string(d[1][13:15])
-				ret.Birth.Month = string(d[1][15:17])
-				ret.Birth.Day = string(d[1][17:19])
-				ret.Birth.Checksum = string(d[1][19:20])
-				ret.Sex = string(d[1][20])
-				ret.Expire.Year = string(d[1][21:23])
-				ret.Expire.Month = string(d[1][23:25])
-				ret.Expire.Day = string(d[1][25:27])
-				ret.Expire.Checksum = string(d[1][27:28])
+				rawName = string(d.RawData[0][5:36])
+				ret.Number = string(d.RawData[1][0:9])
+				ret.Nationality = string(d.RawData[1][10:13])
+				ret.Birth.Year = string(d.RawData[1][13:15])
+				ret.Birth.Month = string(d.RawData[1][15:17])
+				ret.Birth.Day = string(d.RawData[1][17:19])
+				ret.Birth.Checksum = string(d.RawData[1][19:20])
+				ret.Sex = string(d.RawData[1][20])
+				ret.Expire.Year = string(d.RawData[1][21:23])
+				ret.Expire.Month = string(d.RawData[1][23:25])
+				ret.Expire.Day = string(d.RawData[1][25:27])
+				ret.Expire.Checksum = string(d.RawData[1][27:28])
 			}
 			parsed = true
 		}
 
 		// 88/2 ICAO 9303
 		// cestovni pas
-		if len(d[0]) == 44 {
-			rawName = string(d[0][5:34])
-			ret.Number = string(d[1][0:9])
-			ret.NumberChecksum = string(d[1][9:10])
-			ret.Nationality = string(d[1][10:13])
-			ret.Birth.Year = string(d[1][13:15])
-			ret.Birth.Month = string(d[1][15:17])
-			ret.Birth.Day = string(d[1][17:19])
-			ret.Birth.Checksum = string(d[1][19:20])
-			ret.Sex = string(d[1][20])
-			ret.Expire.Year = string(d[1][21:23])
-			ret.Expire.Month = string(d[1][23:25])
-			ret.Expire.Day = string(d[1][25:27])
-			ret.Expire.Checksum = string(d[1][27:28])
-			ret.Pin = string(d[1][28:42])
+		if len(d.RawData[0]) == 44 {
+			rawName = string(d.RawData[0][5:34])
+			ret.Number = string(d.RawData[1][0:9])
+			ret.NumberChecksum = string(d.RawData[1][9:10])
+			ret.Nationality = string(d.RawData[1][10:13])
+			ret.Birth.Year = string(d.RawData[1][13:15])
+			ret.Birth.Month = string(d.RawData[1][15:17])
+			ret.Birth.Day = string(d.RawData[1][17:19])
+			ret.Birth.Checksum = string(d.RawData[1][19:20])
+			ret.Sex = string(d.RawData[1][20])
+			ret.Expire.Year = string(d.RawData[1][21:23])
+			ret.Expire.Month = string(d.RawData[1][23:25])
+			ret.Expire.Day = string(d.RawData[1][25:27])
+			ret.Expire.Checksum = string(d.RawData[1][27:28])
+			ret.Pin = string(d.RawData[1][28:42])
 			parsed = true
 		}
 
 	case 1:
 		// 30/1
 		// Ridicsky prukaz Estonsko
-		if len(d[0]) == 30 {
-			ret.Number = string(d[0][5:14])
+		if len(d.RawData[0]) == 30 {
+			ret.Number = string(d.RawData[0][5:14])
 			parsed = true
 		}
 	}

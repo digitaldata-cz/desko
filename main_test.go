@@ -45,14 +45,17 @@ func TestStartReading(t *testing.T) {
 func TestParseICAO(t *testing.T) {
 	tests := []struct {
 		name     string
-		input    IcaoData
+		input    ReaderData
 		expected IcaoDocument
 	}{
 		{
 			name: "Valid ICAO 9303 - Passport",
-			input: IcaoData{
-				[]byte("P<GBRJOHNSON<<JOHN<<<<<<<<<<<<<<<<<<<<<<<<<<"),
-				[]byte("1234567897GBR8001014M2501017<<<<<<<<<<<<<<02"),
+			input: ReaderData{
+				Type: "MRZ",
+				RawData: [][]byte{
+					[]byte("P<GBRJOHNSON<<JOHN<<<<<<<<<<<<<<<<<<<<<<<<<<"),
+					[]byte("1234567897GBR8001014M2501017<<<<<<<<<<<<<<02"),
+				},
 			},
 			expected: IcaoDocument{
 				IcaoType:         "P",
@@ -95,10 +98,13 @@ func TestParseICAO(t *testing.T) {
 		},
 		{
 			name: "Valid ICAO 9303 - ID Card",
-			input: IcaoData{
-				[]byte("IDCZE9980013435<<<<<<<<<<<<<<<"),
-				[]byte("8110088F2201100CZE<<<<<<<<<<<6"),
-				[]byte("SPECIMEN<<VZOR<<<<<<<<<<<<<<<<"),
+			input: ReaderData{
+				Type: "MRZ",
+				RawData: [][]byte{
+					[]byte("IDCZE9980013435<<<<<<<<<<<<<<<"),
+					[]byte("8110088F2201100CZE<<<<<<<<<<<6"),
+					[]byte("SPECIMEN<<VZOR<<<<<<<<<<<<<<<<"),
+				},
 			},
 			expected: IcaoDocument{
 				IcaoType:         "I",
