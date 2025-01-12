@@ -5,6 +5,7 @@ package desko
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/bearsh/hid"
 )
@@ -12,6 +13,9 @@ import (
 // GetDeviceInfo - returns HID device info
 func GetDeviceInfo() (*hid.DeviceInfo, error) {
 	for _, d := range hid.Enumerate(deskoUsbVendorID, deskoUsbProductID) {
+		if debug {
+			fmt.Println("Device: ", d)
+		}
 		if d.Usage == 1 && d.Interface == 2 {
 			return &d, nil
 		}
