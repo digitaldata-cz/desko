@@ -116,18 +116,26 @@ func StartReading(desko *hid.Device, parser func(ReaderData)) error {
 				fmt.Printf("DESKO reader: % X\n", r[:readBytes])
 			}
 			for i := byte(2); i < r[1]+2; i++ {
-				// Start of ICAO document
+				// Start of ICAO document (MRZ)
 				if r[i] == 0x1c && r[i+1] == 0x02 {
 					if debug {
 						fmt.Println("DESKO reader: Start of document")
 					}
 					i++
 					data.Type = string("MRZ")
-					data.RawData = append(data.RawData[:0], []byte{}) // Initialize first line in IcaoData slice
+					data.RawData = append(data.RawData[:0], []byte{}) // Initialize first line in ReaderData slice
 					continue
 				}
-				// End of ICAO document
-				if r[i] == 0x0d && r[i+1] == 0x03 && r[i+2] == 0x1d {
+				// New line (MRZ)
+				if data.Type == "MRZ" && r[i] == 0x0d {
+					if debug {
+						fmt.Println("DESKO reader: New line")
+					}
+					data.RawData = append(data.RawData, []byte{}) // Add new line to ReaderData slice
+					continue
+				}
+				// End of ICAO document (MRZ)
+				if data.Type == "MRZ" && r[i] == 0x0d && r[i+1] == 0x03 && r[i+2] == 0x1d {
 					if debug {
 						fmt.Println("DESKO reader: End of document")
 					}
@@ -136,14 +144,28 @@ func StartReading(desko *hid.Device, parser func(ReaderData)) error {
 					data.RawData = data.RawData[:0] // Flush slice
 					break
 				}
-				// New line
-				if r[i] == 0x0d {
+
+				// Start of magnetic stripe
+				if r[i] == 0x0e && r[i+1] == 0x02 {
 					if debug {
-						fmt.Println("DESKO reader: New line")
+						fmt.Println("DESKO reader: Start of magnetic stripe")
 					}
-					data.RawData = append(data.RawData, []byte{}) // Add new line to IcaoData slice
+					i++
+					data.Type = string("MS")
+					data.RawData = append(data.RawData[:0], []byte{}) // Initialize first line in ReaderData slice
 					continue
 				}
+				// End of magnetic stripe
+				if data.Type == "MS" && r[i] == 0x03 {
+					if debug {
+						fmt.Println("DESKO reader: End of magnetic stripe")
+					}
+					parser(data)
+					data.Type = ""
+					data.RawData = data.RawData[:0] // Flush slice
+					break
+				}
+
 				if len(data.RawData) == 0 {
 					if debug {
 						fmt.Println("DESKO reader: Skipping data before start of document")
@@ -151,6 +173,8 @@ func StartReading(desko *hid.Device, parser func(ReaderData)) error {
 					time.Sleep(100 * time.Millisecond)
 					continue // Skip data before start of document
 				}
+
+				// Append data to ReaderData slice
 				data.RawData[len(data.RawData)-1] = append(data.RawData[len(data.RawData)-1], r[i])
 			}
 			continue // Continue reading from HID without delay
