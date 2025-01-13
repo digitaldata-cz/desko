@@ -126,14 +126,6 @@ func StartReading(desko *hid.Device, parser func(ReaderData)) error {
 					data.RawData = append(data.RawData[:0], []byte{}) // Initialize first line in ReaderData slice
 					continue
 				}
-				// New line (MRZ)
-				if data.Type == "MRZ" && r[i] == 0x0d {
-					if debug {
-						fmt.Println("DESKO reader: New line")
-					}
-					data.RawData = append(data.RawData, []byte{}) // Add new line to ReaderData slice
-					continue
-				}
 				// End of ICAO document (MRZ)
 				if data.Type == "MRZ" && r[i] == 0x0d && r[i+1] == 0x03 && r[i+2] == 0x1d {
 					if debug {
@@ -143,6 +135,14 @@ func StartReading(desko *hid.Device, parser func(ReaderData)) error {
 					data.Type = ""
 					data.RawData = data.RawData[:0] // Flush slice
 					break
+				}
+				// New line (MRZ)
+				if data.Type == "MRZ" && r[i] == 0x0d {
+					if debug {
+						fmt.Println("DESKO reader: New line")
+					}
+					data.RawData = append(data.RawData, []byte{}) // Add new line to ReaderData slice
+					continue
 				}
 
 				// Start of magnetic stripe
